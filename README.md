@@ -12,7 +12,7 @@ Players search rooms and collect items to facilitate their escape. Completion ti
 persistent leaderboard, enabling competition for the fastest escape time.
 
 <div align=center>
-  
+
 https://github.com/user-attachments/assets/2605d490-5b96-4a42-ac6e-0d0f6824bce3
 
 </div>

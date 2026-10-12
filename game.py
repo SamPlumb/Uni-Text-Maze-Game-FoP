@@ -67,15 +67,15 @@ def record_win(state: dict) -> None:
     menus.you_win_menu(seconds)
 
     while True:
-        player_name = input().strip()
+        name = input().strip()
 
-        if player_name:
+        if name:
             break
 
         d_box(["Player name cannot be empty. Please enter a valid name."])
 
     try:
-        leaderboard.add_score(player_name, seconds)
+        leaderboard.add_score(name, seconds)
     except OSError as error:
         d_box([f"Could not save score: {error}"])
 

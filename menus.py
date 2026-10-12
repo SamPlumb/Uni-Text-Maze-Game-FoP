@@ -161,7 +161,7 @@ def leaderboard_lines(entries: list[dict]) -> list[str]:
     """
     lines = []
     for i, entry in enumerate(entries):
-        lines.append(f"{i + 1}. {entry['player_name']} - {logic.format_duration(entry['score'])}")
+        lines.append(f"{i + 1}. {entry['name']} - {logic.format_duration(entry['time'])}")
 
     return lines
 
