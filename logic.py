@@ -8,26 +8,15 @@ exit, new_game, move room, craft and use items, game timer and random distributi
 
 from collections import Counter
 from random import Random
-from sys import exit as sys_exit
-from time import sleep, monotonic
+from time import monotonic
 
 import data
-from ui import bold, d_box
 
 # Outcome of using an item
 use_win = "win"
 use_map = "map"
 use_no_lock = "no_lock"
 use_invalid = "invalid"
-
-
-def exit_game(delay: float = 3) -> None:
-    """
-    Exit the game.
-    """
-    d_box([bold("Thank you for playing KeyError!"), "Exiting Game..."])
-    sleep(delay)
-    sys_exit()
 
 
 def new_game(rng: Random | None = None) -> dict:
@@ -52,7 +41,9 @@ def distribute_objects(rng: Random, rooms: list[str]) -> dict[str, list[str]]:
     Give each room objects_per_room amount of different objects.
     Returns a dictionary mapping room names to lists of objects.
     """
-    return {room: rng.sample(list(data.room_objects), data.objects_per_room) for room in rooms}
+    object_names = list(data.room_objects)
+
+    return {room: rng.sample(object_names, data.objects_per_room) for room in rooms}
 
 
 def distribute_items(rng: Random, rooms: list[str]) -> dict[str, list[str]]:
@@ -99,7 +90,7 @@ def move_player_room(state: dict, new_room: str) -> None:
     Raises ValueError if the new room is not a valid exit from the current room.
     """
     # Check if the new room is a valid exit from the current room
-    if new_room not in [name for _, name in current_room_exits(state["room"])]:
+    if not any(room_exit == new_room for _, room_exit in current_room_exits(state["room"])):
         raise ValueError(f"Cannot move to {new_room} from {state['room']}.")
 
     # Update the player's current room in the game state
@@ -124,14 +115,6 @@ def pick_up_item(state: dict, object_index: int) -> str | None:
     return None
 
 
-def get_usable_items(pockets: Counter) -> list[str]:
-    """
-    Returns a list of item names that are both in the player's pockets and
-    in the list of usable items defined in the game data.
-    """
-    return [item for item in pockets if item in data.usable_items and pockets[item] > 0]
-
-
 def can_craft_item(pockets: Counter, item: str) -> bool:
     """
     Check if the player can craft the given item with their current pockets.
@@ -143,8 +126,7 @@ def can_craft_item(pockets: Counter, item: str) -> bool:
     if not recipe:
         return False
     # If the recipe exists, check if the player has enough of each ingredient
-    else:
-        return all(pockets[ingredient] >= qty for ingredient, qty in recipe.items())
+    return all(pockets[ingredient] >= qty for ingredient, qty in recipe.items())
 
 
 def get_craftable_items(pockets: Counter) -> list[str]:
@@ -173,6 +155,44 @@ def craft_item(pockets: Counter, item: str) -> bool:
     return True
 
 
+def use_item_golden_key(state: dict) -> str:
+    """
+    Use the Golden Key.
+    If the player is in the exit room, they win the game.
+    If the player is not in the exit room, they cannot use the key.
+    Returns:
+    - use_win: The player wins the game by using the key in the correct room.
+    - use_no_lock: The player tries to use a key in a room without a lock.
+    """
+    if state["room"] in data.exit_rooms:
+        state["pockets"]["Golden Key"] -= 1  # Use the key
+        return use_win  # Player wins by using the key
+
+    return use_no_lock  # No lock to open in this room
+
+
+def use_item_map(state: dict) -> str:
+    """
+    Use the Map.
+    Returns:
+    - use_map: The player uses the map to view the game map.
+    """
+    return use_map  # Show the map
+
+
+use_handlers = {
+    "Golden Key": use_item_golden_key,
+    "Map": use_item_map}
+
+
+def get_usable_items(pockets: Counter) -> list[str]:
+    """
+    Returns a list of item names that are both in the player's pockets and
+    in the list of usable items defined in the game data.
+    """
+    return [item for item in pockets if item in use_handlers and pockets[item] > 0]
+
+
 def use_item(state: dict, item: str) -> str:
     """
     Use an item from the player's pockets and return the outcome.
@@ -185,23 +205,12 @@ def use_item(state: dict, item: str) -> str:
     Invalid usage:
     - use_invalid: The item cannot be used or is not in the player's pockets.
     """
-    if item not in data.usable_items or state["pockets"][item] <= 0:
-        return use_invalid
+    handler = use_handlers.get(item)
 
-    if item == "Golden Key":
+    if handler is None or state["pockets"][item] <= 0:
+        return use_invalid  # Item cannot be used or is not in the player's pockets
 
-        # Check if the player is in a room with a lock that can be opened
-        if state["room"] in data.exit_room:
-            state["pockets"][item] -= 1  # Use the key
-            return use_win  # Player wins by using the key
-
-        else:
-            return use_no_lock  # No lock to open in this room
-
-    elif item == "Map":
-        return use_map  # Show the map
-
-    return use_invalid
+    return handler(state)
 
 
 def game_timer(state: dict) -> int:
@@ -209,21 +218,3 @@ def game_timer(state: dict) -> int:
     Return the time since the game started.
     """
     return int(monotonic() - state["start_time"])
-
-
-def format_duration(seconds: int) -> str:
-    """
-    Format a duration in seconds into a human-readable string.
-    Returns a string in the format "Xh Ym Zs" where X is hours, Y is minutes, and Z is seconds.
-    If hours are zero, they are omitted. If minutes are zero, they are omitted.
-    """
-    hours, remainder = divmod(int(seconds), 3600)
-    minutes, sec = divmod(remainder, 60)
-
-    if hours:
-        return f"{hours}h {minutes}m {sec}s"
-
-    if minutes:
-        return f"{minutes}m {sec}s"
-
-    return f"{sec}s"

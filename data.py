@@ -19,7 +19,7 @@ rooms: dict[str, list[tuple[str, str]]] = {
 }
 
 # The room where the Golden Key opens the exit door.
-exit_room = "Hospital Reception"
+exit_rooms = {"Hospital Reception"}
 
 # Number of objects per room.
 # Every room holds objects_per_room of these, each hiding one item.
@@ -51,8 +51,6 @@ items: dict[str, str] = {
 }
 
 essential_items = ["Golden Key Piece", "Golden Key Piece", "Golden Key Piece", "Surgical Glue"]
-
-usable_items = ["Map", "Golden Key"]
 
 crafting_recipes: dict[str, dict[str, int]] = {
     "Golden Key": {"Golden Key Piece": 3, "Surgical Glue": 1},

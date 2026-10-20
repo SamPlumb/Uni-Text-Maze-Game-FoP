@@ -1,5 +1,5 @@
 """
-Keyerror: The Keeper of the Golden Key
+KeyError: The Keeper of the Golden Key
 leaderboard.py
 
 functions to manage leaderboard interaction:
@@ -13,24 +13,47 @@ from pathlib import Path
 # The default file is in the same directory as this module
 default_file = Path(__file__).resolve().parent / "leaderboard.json"
 
-# Variable for the maximum length of a player name, used in add_score()
+# Variable for the maximum length of a player name
 max_name_length = 20
 
 
-def validate_entries(entry: object) -> bool:
+def clean_name(name: str) -> str:
+    """
+    Clean a player name by stripping whitespace.
+    """
+    return " ".join(name.split())
+
+
+def validate_player_name(name: str) -> str | None:
+    """
+    Check if a player name is valid.
+    Returns an error message if the name is invalid, otherwise returns None.
+    """
+    if not name:
+        return "Player name cannot be blank."
+    if len(name) > max_name_length:
+        return f"Player name cannot be longer than {max_name_length} characters."
+    if not name.replace(" ", "").isalnum():
+        return "Player name can only contain letters, numbers, and spaces."
+    return None  # Valid name
+
+
+def is_valid_entry(entry: object) -> bool:
     """
     Check if an entry is a valid leaderboard entry.
-    Returns bool, True if the entry is a dict with a string 'name' that is not empty and less than max_name length
-    and a numeric 'time' that is positive.
+    Returns True if the entry is a dict with a non-empty string 'name' and no longer than max_name_length characters,
+    and a numeric 'time' that is zero or greater.
     """
-    if isinstance(entry, dict):
-        valid_name = (isinstance(entry.get("name"), str) and 0 < len(entry["name"]) <= max_name_length)
-        valid_time = (isinstance(entry.get("time"), (int, float)) and entry["time"] >= 0)
+    if not isinstance(entry, dict):
+        return False
 
-        if valid_name and valid_time:
-            return True
+    name = entry.get("name")
+    time = entry.get("time")
 
-    return False
+    valid_name = isinstance(name, str) and 0 < len(name) <= max_name_length and name.isprintable()
+    valid_time = isinstance(time, (int, float)) and time >= 0
+
+    return valid_name and valid_time
 
 
 def sort_entries(entries: list[dict]) -> list[dict]:
@@ -46,7 +69,7 @@ def valid_sorted_entries(entries: list[dict]) -> list[dict]:
     Filter out invalid entries and return a sorted list of valid entries.
     Returns a new list of valid entries sorted by time (fastest first).
     """
-    valid_entries = [entry for entry in entries if validate_entries(entry)]
+    valid_entries = [entry for entry in entries if is_valid_entry(entry)]
 
     return sort_entries(valid_entries)
 
@@ -93,27 +116,21 @@ def save(entries: list[dict], filename: Path | str | None = None) -> None:
     with temp_path.open("w", encoding="utf-8") as file:
         json.dump(valid_sorted_entries(entries), file, indent=4)
 
-    if not temp_path.exists():
-        raise OSError("Failed to save entries.")
-
     # Replace the original file with the temporary file
-    else:
-        os.replace(temp_path, path)
+    os.replace(temp_path, path)
 
 
-def add_score(name: str, seconds: int, filename: Path | str | None = None) -> bool:
+def add_score(name: str, seconds: int, filename: Path | str | None = None) -> None:
     """
     Record a score.
-    Raises ValueError for a blank name, name longer than max_name_length, or negative time.
-    Returns True if the score was added successfully.
+    Raises ValueError for a blank name, name longer than max_name_length, invalid characters, or negative time.
+    Raises OSError if the file can't be written.
     """
-    plr_name = name.strip()
+    plr_name = clean_name(name)
 
-    if not plr_name:
-        raise ValueError("Player name cannot be blank.")
-
-    if len(plr_name) > max_name_length:
-        raise ValueError(f"Player name cannot be longer than {max_name_length} characters.")
+    error = validate_player_name(plr_name)
+    if error:
+        raise ValueError(error)
 
     if seconds < 0:
         raise ValueError("Score cannot be negative.")
@@ -121,7 +138,6 @@ def add_score(name: str, seconds: int, filename: Path | str | None = None) -> bo
     entries = load(filename)
     entries.append({"name": plr_name, "time": seconds})
     save(entries, filename)
-    return True
 
 
 def remove_score(entry: dict, filename: Path | str | None = None) -> bool:
